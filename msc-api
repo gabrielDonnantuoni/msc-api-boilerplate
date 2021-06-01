@@ -1,0 +1,89 @@
+#!/bin/bash
+
+if [ -z "$1" ]
+then
+  echo "`basename $0`: usage:
+  arg1=[DIR_NAME || 'here']: Type the DIR_NAME to create new directory where you are or 'here' to create the boilerplate in the same current dir.
+  arg2=['y' || 'n']: Type 'y' to init npm and install dependencies or 'n' to skip it.
+  arg3=[STARTING_REST_RESOURCE]: Set the name of the default resource to start the api. Like 'Users', 'Products' and etc. Leave in blank to use 'Examples' as default."
+  exit 1
+fi
+
+if [ -z "$2" ]
+then
+  echo "You need to inform if do you want to run npm init and install. ['y' || 'n']"
+  exit 1
+fi
+
+if [ -z "$3" ]
+then
+  RES_NAME="Examples"
+else
+  RES_NAME="$3"
+fi
+
+RES_NAME_LOWER=$(echo "$RES_NAME" | sed -e 's/\(.*\)/\L\1/')
+
+if [ "$1" != "here" ]
+then
+  mkdir "$1"
+  cd "./$1"
+fi
+
+echo "Choose you stack:
+Database: ['mongodb' || 'mysql']
+Test libs: ['mcs' || 'jest']. Where 'mcs' is a short for 'Mocha chai sinon'."
+while true
+do
+  echo "Answer pattern: 'db test' like => 'mongodb jest'"
+  read STACKS
+  STACKS_ARR=(${STACKS})
+  echo ""
+
+  case "${STACKS_ARR[0]}" in
+    "mongodb") DB_DEP="${STACKS_ARR[0]}";;
+    "mysql") DB_DEP="${STACKS_ARR[0]}2";;
+    *) echo "----------------------------------------------
+Database not supported. Choose one of ['mongodb' || 'mysql']
+"
+    continue;;
+  esac
+
+  case "${STACKS_ARR[1]}" in
+    "mcs") TESTS_SCRIPTS='"test": "mocha \.\/tests\/\*\*\/\*\$NAME\*\.test\.js --exit",\n    "testAll": "mocha \.\/tests --recursive",\n    '
+      TESTS_DEP="mocha chai sinon";;
+    "jest") TESTS_SCRIPTS='"test": "jest --testLocationInResults --verbose",\n    '
+      TESTS_DEP="jest";;
+    *) echo "----------------------------------------------
+Test libraries not supported. Choose one of ['mcs' || 'jest']
+"
+    continue;;
+  esac
+
+  break
+done
+
+if [ "$2" = "y" ]
+then
+  npm init -y
+  npm i express joi "$DB_DEP"
+  npm i -D nodemon "$TESTS_DEP"
+  SCRIPTS='"start": "node index.js",\n    "dev": "nodemon index.js"'
+  SCRIPTS="$TESTS_SCRIPTS$SCRIPTS"
+  sed -i "s+\"test\": .* exit 1\"+$SCRIPTS+1" ./package.json
+fi
+# mkdir controllers models services
+
+
+touch index.js
+cat > index.js << EOF
+const express = require('express');
+const { PORT } = require('./.env');
+
+const app = express();
+
+app.use(express.json());
+
+app.listen(PORT, () => console.log(\`App rodando na porta \${PORT}\`));
+
+EOF
