@@ -5,24 +5,45 @@ then
   echo "`basename $0`: usage:
   arg1=[DIR_NAME || 'here']: Type the DIR_NAME to create new directory where you are or 'here' to create the boilerplate in the same current dir.
   arg2=['y' || 'n']: Type 'y' to init npm and install dependencies or 'n' to skip it.
-  arg3=[STARTING_REST_RESOURCE]: Set the name of the default resource to start the api. Like 'Users', 'Products' and etc. Leave in blank to use 'Examples' as default."
+  arg3=[REST_RESOURCES]: Set the name of the REST resources and their ref collection/table to start the api.
+  Like 'Users-users Products-products'. Make sure to use quotes when setting more than one resource."
   exit 1
 fi
 
 if [ -z "$2" ]
 then
-  echo "You need to inform if do you want to run npm init and install. ['y' || 'n']"
+  echo "You need to inform if you want to run npm init and install dependencies. ['y' || 'n']"
+  exit 1
+fi
+
+if [ -n "$4" ]
+then
+  echo "You must set just 3 params."
   exit 1
 fi
 
 if [ -z "$3" ]
 then
-  RES_NAME="Examples"
+  RESOR_COLLECS="Examples-examples"
 else
-  RES_NAME="$3"
+  RESOR_COLLECS=(${3})
 fi
 
-RES_NAME_LOWER=$(echo "$RES_NAME" | sed -e 's/\(.*\)/\L\1/')
+RESOR_INDEX=0
+for RC in ${RESOR_COLLECS[*]}
+do
+  RC_ARR=(${RC//-/ })
+  RES[RESOR_INDEX]=${RC_ARR[0]}
+  COLLEC[RESOR_INDEX]=${RC_ARR[1]}
+  RES_LOWER[RESOR_INDEX]=$(echo "$RES" | sed -e 's/\(.*\)/\L\1/')
+  RESOR_INDEX=`expr $RESOR_INDEX + 1`
+done
+RESOR_INDEX=`expr $RESOR_INDEX - 1`
+
+for idx in $(seq 0 $RESOR_INDEX)
+do
+  echo "${RES[idx]} ${COLLEC[idx]} ${RES_LOWER}"
+done
 
 if [ "$1" != "here" ]
 then
@@ -37,22 +58,24 @@ while true
 do
   echo "Answer pattern: 'db test' like => 'mongodb jest'"
   read STACKS
-  STACKS_ARR=(${STACKS})
   echo ""
+  STACKS_ARR=(${STACKS})
+  DB=${STACKS_ARR[0]}
+  TEST=${STACKS_ARR[1]}
 
-  case "${STACKS_ARR[0]}" in
-    "mongodb") DB_DEP="${STACKS_ARR[0]}";;
-    "mysql") DB_DEP="${STACKS_ARR[0]}2";;
+  case "$DB" in
+    "mongodb") DB_DEP="$DB";;
+    "mysql") DB_DEP="${DB}2";;
     *) echo "----------------------------------------------
 Database not supported. Choose one of ['mongodb' || 'mysql']
 "
     continue;;
   esac
 
-  case "${STACKS_ARR[1]}" in
-    "mcs") TESTS_SCRIPTS='"test": "mocha \.\/tests\/\*\*\/\*\$NAME\*\.test\.js --exit",\n    "testAll": "mocha \.\/tests --recursive",\n    '
-      TESTS_DEP="mocha chai sinon";;
-    "jest") TESTS_SCRIPTS='"test": "jest --testLocationInResults --verbose",\n    '
+  case "$TEST" in
+    "mcs") TESTS_SCRIPTS='"test": "mocha \.\/tests\/\*\*\/\*\$DIR\*\/\*\$NAME\*\.test\.js --exit",\n    "testAll": "mocha \.\/tests --recursive",\n    "coverage": "nyc mocha \.\/tests --recursive",\n    '
+      TESTS_DEP="mocha chai sinon nyc";;
+    "jest") TESTS_SCRIPTS='"test": "jest --testLocationInResults --verbose",\n    "coverage": "jest --coverage --verbose"'
       TESTS_DEP="jest";;
     *) echo "----------------------------------------------
 Test libraries not supported. Choose one of ['mcs' || 'jest']
@@ -63,19 +86,32 @@ Test libraries not supported. Choose one of ['mcs' || 'jest']
   break
 done
 
+case "$DB" in
+  "mongodb") TESTS_DEP="${TESTS_DEP} mongodb-memory-server";;
+  "mysql") TESTS_DEP="${TESTS_DEP}";;
+esac
+
 if [ "$2" = "y" ]
 then
   npm init -y
   npm i express joi "$DB_DEP"
   npm i -D nodemon "$TESTS_DEP"
   SCRIPTS='"start": "node index.js",\n    "dev": "nodemon index.js"'
-  SCRIPTS="$TESTS_SCRIPTS$SCRIPTS"
+  SCRIPTS="${TESTS_SCRIPTS}${SCRIPTS}"
   sed -i "s+\"test\": .* exit 1\"+$SCRIPTS+1" ./package.json
 fi
-# mkdir controllers models services
+# mkdir controllers models services middlewares routes schemas tests utils
+
+if [ -f ".gitignore" ]
+then
+  cat >> ./.gitignore << EOF
 
 
-touch index.js
+# Private enviroment
+.env.js
+EOF
+fi
+
 cat > index.js << EOF
 const express = require('express');
 const { PORT } = require('./.env');
