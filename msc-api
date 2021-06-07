@@ -68,7 +68,7 @@ Database not supported. Choose one of ['mongodb' || 'mysql']
   esac
 
   case "$TEST" in
-    "mcs") TESTS_SCRIPTS='"test": "mocha \.\/tests\/\*\*\/\*\$DIR\*\/\*\$NAME\*\.test\.js --exit",\n    "testAll": "mocha \.\/tests --recursive",\n    "coverage": "nyc mocha \.\/tests --recursive",\n    '
+    "mcs") TESTS_SCRIPTS='"test": "mocha \.\/tests\/\*\*\/\*\$DIR\*\/\*\*\/\*\$NAME\*\.test\.js --exit",\n    "testAll": "mocha \.\/tests --recursive",\n    "coverage": "nyc mocha \.\/tests --recursive",\n    '
       TESTS_DEP="mocha chai sinon nyc";;
     "jest") TESTS_SCRIPTS='"test": "jest --testLocationInResults --verbose",\n    "coverage": "jest --coverage --verbose",\n    '
       TESTS_DEP="jest";;
@@ -90,16 +90,24 @@ if [ "$2" = "y" ]
 then
   npm init -y
   npm i express joi $DB_DEP
-  # npm i -D nodemon $TESTS_DEP
+  npm i -D nodemon $TESTS_DEP
   SCRIPTS='"start": "node index.js",\n    "dev": "nodemon index.js"'
   SCRIPTS="${TESTS_SCRIPTS}${SCRIPTS}"
   sed -i "s+\"test\": .* exit 1\"+$SCRIPTS+1" ./package.json
 fi
 
-mkdir controllers models services middlewares routes schemas tests utils
-mkdir ./middlewares/validations ./tests/units
+DIRS_TO_MK=(controllers models services middlewares routes schemas tests utils tests/units)
+for DIR in ${DIRS_TO_MK[*]}
+do
+  if [ ! -d $DIR ]
+  then
+    mkdir $DIR
+  fi
+done
 
 SCRIPT_DIR="$HOME/.local/bin"
 
 $SCRIPT_DIR/msc-api-models/js-default.sh ${RESOR_COLLECS[*]}
 $SCRIPT_DIR/msc-api-models/js-mongodb.sh
+$SCRIPT_DIR/msc-api-models/js-mcs.sh ${RESOR_COLLECS[*]}
+$SCRIPT_DIR/msc-api-models/js-mcs-mongodb.sh

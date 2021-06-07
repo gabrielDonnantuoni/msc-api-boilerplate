@@ -23,7 +23,7 @@ then
 fi
 
 # Create index.js
-cat >> index.js << EOF
+cat > index.js << EOF
 const express = require('express');
 const { port } = require('./.env').api;
 const { errorHandler, notFoundHandler } = require('./middlewares');
@@ -91,6 +91,8 @@ EOF
 fi
 
 # Create resource index for controllers
+cat > ./controllers/index.js < ''
+
 for RES in ${RESOUR[*]}
 do
   cat >> ./controllers/index.js << EOF
@@ -115,7 +117,7 @@ cat >> ./controllers/index.js << EOF
 EOF
 
 # Copy resource index pattern to similar directories 
-DIRS=("services routes middlewares/validations schemas")
+DIRS=("services routes schemas")
 for DIR in ${DIRS[*]}
 do
   cp ./controllers/index.js ./$DIR/index.js
@@ -171,46 +173,56 @@ module.exports = {
 EOF
 done
 
-# Create resources middlewares/validations
-for RES in ${RESOUR[*]}
-do
-  cat > ./middlewares/validations/$RES.js << EOF
-const Schems = require('../../schemas').$RES;
-const tcw = require('../../utils').tryCatchWrapper;
+# Create default middlewares
+cat > ./middlewares/validations.js << EOF
+const Schemas = require('../schemas');
+const tcw = require('../utils').tryCatchWrapper;
 
 const options = { errors: { wrap: { label: "'" } } };
 
-module.exports = (type) => tcw(async (req, _res, next) => {
-  const schema = Schems[type];
+const validate = (resource) => (type) => tcw(async (req, _res, next) => {
+  const schema = Schemas[resource][type];
   await schema.validateAsync(req.body, options);
   next();
-}, 'badRequest');
+}, 'bad_request');
+
+module.exports = {
+EOF
+
+for RES in ${RESOUR[*]}
+do
+  cat >> ./middlewares/validations.js << EOF
+  $RES: validate('$RES'),
 EOF
 done
 
-# Create default middlewares
+cat >> ./middlewares/validations.js << EOF
+};
+EOF
+
 cat > ./middlewares/errorHandler.js << EOF
 module.exports = (err, _req, res, _next) => {
   const { code, message } = err;
   const statusByErrorCode = {
-    badRequest: 400,
+    bad_request: 400,
     unauthenticated: 401,
-    paymentRequired: 402,
+    payment_required: 402,
     forbidden: 403,
-    notFound: 404,
-    alreadyExists: 409,
-    internalError: 500,
+    not_found: 404,
+    already_exists: 409,
+    unprocessable_entity: 422,
+    internal_error: 500,
   };
-  const status = statusByErrorCode[code] || statusByErrorCode['internalError'];
+  const status = statusByErrorCode[code] || statusByErrorCode['internal_error'];
 
   const resJson = () => {
     switch (code) {
-      case 'notFound':
+      case 'not_found':
         return { message };
-      case 'badRequest':
-        return { error: { code, message: 'invalid data message', data: message } };
+      case 'bad_request':
+        return { err: { code, message: 'invalid_data', data: message } };
       default:
-        return { error: { code, message } };
+        return { err: { code, message } };
     }
   };
 
@@ -221,7 +233,7 @@ EOF
 cat > ./middlewares/notFound.js << EOF
 module.exports = (req, _res, next) => {
   const { notFound } = req.params;
-  next({ code: 'notFound', message: \`Method: \${req.method} - Path: '/${notFound}' is not supported\` });
+  next({ code: 'not_found', message: \`Method: \${req.method} - Path: '/\${notFound}' is not supported\` });
 };
 EOF
 
@@ -253,25 +265,25 @@ const getAll = async () => {
 
 const findById = async (id) => {
   const example = await General.findById(COLLECTION_NAME, id);
-  if (!example) return { error: { code: 'notFound', message: 'notFound message find' } };
+  if (!example) return { error: { code: 'not_found', message: 'not_found message find' } };
   return { result: example };
 };
 
 const insertOne = async (obj) => {
   const insertedId = await General.insertOne(COLLECTION_NAME, obj);
-  if (!insertedId) return { error: { code: 'alreadyExists', message: 'alreadyExists message insert' } };
+  if (!insertedId) return { error: { code: 'already_exists', message: 'already_exists message insert' } };
   return { result: { _id: insertedId, ...obj } };
 };
 
 const deleteById = async (id) => {
   const resp = await General.deleteById(COLLECTION_NAME, id);
-  if (!resp) return { error: { code: 'notFound', message: 'notFound message delete' } };
+  if (!resp) return { error: { code: 'not_found', message: 'not_found message delete' } };
   return { result: { message: \`The \${RESOURCE_NAME_SINGULAR} with id = \${id} was deleted successfully\` } };
 };
 
 const updateById = async (id, obj) => {
   const resp = await General.updateById(COLLECTION_NAME, id, obj);
-  if (!resp) return { error: { code: 'notFound', message: 'notFound message update' } };
+  if (!resp) return { error: { code: 'not_found', message: 'not_found message update' } };
   return await findById(id);
 };
 
@@ -355,7 +367,7 @@ module.exports = ({ protocol, hostname, port, username, password, pathname, sear
 EOF
 
 cat > ./utils/tryCatchWrapper.js << EOF
-module.exports = (callback, code = 'internalError') => async (req, res, next) => {
+module.exports = (callback, code = 'internal_error') => async (req, res, next) => {
   try {
     await callback(req, res, next);
   } catch (err) {
