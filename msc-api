@@ -40,11 +40,6 @@ do
 done
 RESOR_INDEX=`expr $RESOR_INDEX - 1`
 
-for idx in $(seq 0 $RESOR_INDEX)
-do
-  echo "${RES[idx]} ${COLLEC[idx]} ${RES_LOWER}"
-done
-
 if [ "$1" != "here" ]
 then
   mkdir "$1"
@@ -75,7 +70,7 @@ Database not supported. Choose one of ['mongodb' || 'mysql']
   case "$TEST" in
     "mcs") TESTS_SCRIPTS='"test": "mocha \.\/tests\/\*\*\/\*\$DIR\*\/\*\$NAME\*\.test\.js --exit",\n    "testAll": "mocha \.\/tests --recursive",\n    "coverage": "nyc mocha \.\/tests --recursive",\n    '
       TESTS_DEP="mocha chai sinon nyc";;
-    "jest") TESTS_SCRIPTS='"test": "jest --testLocationInResults --verbose",\n    "coverage": "jest --coverage --verbose"'
+    "jest") TESTS_SCRIPTS='"test": "jest --testLocationInResults --verbose",\n    "coverage": "jest --coverage --verbose",\n    '
       TESTS_DEP="jest";;
     *) echo "----------------------------------------------
 Test libraries not supported. Choose one of ['mcs' || 'jest']
@@ -94,32 +89,17 @@ esac
 if [ "$2" = "y" ]
 then
   npm init -y
-  npm i express joi "$DB_DEP"
-  npm i -D nodemon "$TESTS_DEP"
+  npm i express joi $DB_DEP
+  # npm i -D nodemon $TESTS_DEP
   SCRIPTS='"start": "node index.js",\n    "dev": "nodemon index.js"'
   SCRIPTS="${TESTS_SCRIPTS}${SCRIPTS}"
   sed -i "s+\"test\": .* exit 1\"+$SCRIPTS+1" ./package.json
 fi
-# mkdir controllers models services middlewares routes schemas tests utils
 
-if [ -f ".gitignore" ]
-then
-  cat >> ./.gitignore << EOF
+mkdir controllers models services middlewares routes schemas tests utils
+mkdir ./middlewares/validations ./tests/units
 
+SCRIPT_DIR="$HOME/.local/bin"
 
-# Private enviroment
-.env.js
-EOF
-fi
-
-cat > index.js << EOF
-const express = require('express');
-const { PORT } = require('./.env');
-
-const app = express();
-
-app.use(express.json());
-
-app.listen(PORT, () => console.log(\`App rodando na porta \${PORT}\`));
-
-EOF
+$SCRIPT_DIR/msc-api-models/js-default.sh ${RESOR_COLLECS[*]}
+$SCRIPT_DIR/msc-api-models/js-mongodb.sh
