@@ -3,8 +3,8 @@
 if [ -z "$1" ]
 then
   echo "`basename $0`: usage:
-  arg1=[DIR_NAME || 'here']: Type the DIR_NAME to create new directory where you are or 'here' to create the boilerplate in the same current dir.
-  arg2=['y' || 'n']: Type 'y' to init npm and install dependencies or 'n' to skip it.
+  arg1=[DIR_NAME || here]: Type the DIR_NAME to create new directory where you are or 'here' to create the boilerplate in the same current dir.
+  arg2=[y || n]: Type 'y' to init npm and install dependencies or 'n' to skip it.
   arg3=[REST_RESOURCES]: Set the name of the REST resources and their ref collection/table to start the api.
   Like 'Users-users Products-products'. Make sure to use quotes when setting more than one resource."
   exit 1
@@ -12,7 +12,7 @@ fi
 
 if [ -z "$2" ]
 then
-  echo "You need to inform if you want to run npm init and install dependencies. ['y' || 'n']"
+  echo "You need to inform if you want to run npm init and install dependencies. [y | n]"
   exit 1
 fi
 
@@ -40,18 +40,12 @@ do
 done
 RESOR_INDEX=`expr $RESOR_INDEX - 1`
 
-if [ "$1" != "here" ]
-then
-  mkdir "$1"
-  cd "./$1"
-fi
-
 echo "Choose you stack:
-Database: ['mongodb' || 'mysql']
-Test libs: ['mcs' || 'jest']. Where 'mcs' is a short for 'Mocha chai sinon'."
+Database: [mongodb || mysql]
+Test libs: [mcs || jest]. Where 'mcs' is a short for 'Mocha chai and sinon'."
 while true
 do
-  echo "Answer pattern: 'db test' like => 'mongodb jest'"
+  echo "Answer pattern: <db test> like => <mongodb jest>"
   read STACKS
   echo ""
   STACKS_ARR=(${STACKS})
@@ -62,7 +56,7 @@ do
     "mongodb") DB_DEP="$DB";;
     "mysql") DB_DEP="${DB}2";;
     *) echo "----------------------------------------------
-Database not supported. Choose one of ['mongodb' || 'mysql']
+Database not supported. Choose one of [mongodb | mysql]
 "
     continue;;
   esac
@@ -73,7 +67,7 @@ Database not supported. Choose one of ['mongodb' || 'mysql']
     "jest") TESTS_SCRIPTS='"test": "jest --testLocationInResults --verbose",\n    "coverage": "jest --coverage --verbose",\n    '
       TESTS_DEP="jest";;
     *) echo "----------------------------------------------
-Test libraries not supported. Choose one of ['mcs' || 'jest']
+Test libraries not supported. Choose one of [mcs | jest]
 "
     continue;;
   esac
@@ -86,12 +80,27 @@ case "$DB" in
   "mysql") TESTS_DEP="${TESTS_DEP}";;
 esac
 
+echo "Do you want to use eslint? [y | n]
+"
+read USE_ESLINT
+
+if [ "$USE_ESLINT" = "y" ]
+then
+  ESLINT_AND_PLUGINS="eslint eslint-config-airbnb eslint-plugin-import eslint-plugin-sonarjs"
+fi
+
+if [ "$1" != "here" ]
+then
+  mkdir "$1"
+  cd "./$1"
+fi
+
 if [ "$2" = "y" ]
 then
   npm init -y
   npm i express joi $DB_DEP
-  npm i -D nodemon $TESTS_DEP
-  SCRIPTS='"start": "node index.js",\n    "dev": "nodemon index.js"'
+  npm i -D nodemon $TESTS_DEP $ESLINT_AND_PLUGINS
+  SCRIPTS='"start": "node index.js",\n    "dev": "nodemon index.js",\n    "lint": "eslint --no-inline-config --no-error-on-unmatched-pattern -c .eslintrc.json . --ext .js, .jsx"'
   SCRIPTS="${TESTS_SCRIPTS}${SCRIPTS}"
   sed -i "s+\"test\": .* exit 1\"+$SCRIPTS+1" ./package.json
 fi
@@ -111,3 +120,7 @@ $SCRIPT_DIR/msc-api-models/js-default.sh ${RESOR_COLLECS[*]}
 $SCRIPT_DIR/msc-api-models/js-mongodb.sh
 $SCRIPT_DIR/msc-api-models/js-mcs.sh ${RESOR_COLLECS[*]}
 $SCRIPT_DIR/msc-api-models/js-mcs-mongodb.sh
+if [ "$USE_ESLINT" = "y" ]
+then
+  $SCRIPT_DIR/msc-api-models/js-linter.sh
+fi

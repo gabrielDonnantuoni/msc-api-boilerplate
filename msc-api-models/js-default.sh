@@ -65,7 +65,7 @@ module.exports = {
     host: 'localhost',
     user: '',
     password: '',
-    database: 'fill it up',
+    database: 'fill_it_up',
   },
   mongodbConnection: {
     protocol: 'mongodb',
@@ -73,7 +73,7 @@ module.exports = {
     port: '27017',
     username: '',
     password: '',
-    database: 'fill it up',
+    database: 'fill_it_up',
     search: 'retryWrites=true&w=majority',
   },
 };
@@ -91,8 +91,6 @@ EOF
 fi
 
 # Create resource index for controllers
-cat > ./controllers/index.js < ''
-
 for RES in ${RESOUR[*]}
 do
   cat >> ./controllers/index.js << EOF
@@ -130,37 +128,40 @@ do
 const Service = require('../services').$RES;
 const tcw = require('../utils').tryCatchWrapper;
 
+const STATUS_OK = 200;
+const STATUS_CREATED = 201;
+
 const findById = tcw(async (req, res, next) => {
   const { id } = req.params;
   const { result, error } = await Service.findById(id);
   if (error) return next(error);
-  res.status(200).json(result);
+  res.status(STATUS_OK).json(result);
 });
 
 const updateById = tcw(async (req, res, next) => {
   const { id } = req.params;
   const { result, error } = await Service.updateById(id, req.body);
   if (error) return next(error);
-  res.status(200).json(result);
+  res.status(STATUS_OK).json(result);
 });
 
 const deleteById = tcw(async (req, res, next) => {
   const { id } = req.params;
   const { result, error } = await Service.deleteById(id);
   if (error) return next(error);
-  res.status(200).json(result);
+  res.status(STATUS_OK).json(result);
 });
 
 const getAll = tcw(async (_req, res, next) => {
   const { result, error } = await Service.getAll();
   if (error) return next(error);
-  res.status(200).json(result);
+  res.status(STATUS_OK).json(result);
 });
 
 const insertOne = tcw(async (req, res, next) => {
   const { result, error } = await Service.insertOne(req.body);
   if (error) return next(error);
-  res.status(201).json(result);
+  res.status(STATUS_CREATED).json(result);
 });
 
 module.exports = {
@@ -178,7 +179,7 @@ cat > ./middlewares/validations.js << EOF
 const Schemas = require('../schemas');
 const tcw = require('../utils').tryCatchWrapper;
 
-const options = { errors: { wrap: { label: "'" } } };
+const options = { errors: { wrap: { label: '\'' } } };
 
 const validate = (resource) => (type) => tcw(async (req, _res, next) => {
   const schema = Schemas[resource][type];
@@ -217,23 +218,26 @@ module.exports = (err, _req, res, _next) => {
 
   const resJson = () => {
     switch (code) {
-      case 'not_found':
-        return { message };
-      case 'bad_request':
-        return { err: { code, message: 'invalid_data', data: message } };
-      default:
-        return { err: { code, message } };
+    case 'not_found':
+      return { message };
+    case 'bad_request':
+      return { err: { code, message: 'invalid_data', data: message } };
+    default:
+      return { err: { code, message } };
     }
   };
 
-  res.status(status).json(resJson())
+  res.status(status).json(resJson());
 };
 EOF
 
 cat > ./middlewares/notFound.js << EOF
 module.exports = (req, _res, next) => {
   const { notFound } = req.params;
-  next({ code: 'not_found', message: \`Method: \${req.method} - Path: '/\${notFound}' is not supported\` });
+  next({
+    code: 'not_found',
+    message: \`Method: \${req.method} - Path: '/\${notFound}' is not supported\`,
+  });
 };
 EOF
 
@@ -256,34 +260,39 @@ do
 const { General } = require('../models');
 
 const COLLECTION_NAME = '${COLLEC[idx]}';
-const RESOURCE_NAME_SINGULAR = 'fill it up';
+const NAME_SINGULAR = 'fill_it_up';
 
 const getAll = async () => {
-  const examples = await General.getAll(COLLECTION_NAME);
-  return { result: examples };
+  const resources = await General.getAll(COLLECTION_NAME);
+  return { result: resources };
 };
 
 const findById = async (id) => {
-  const example = await General.findById(COLLECTION_NAME, id);
-  if (!example) return { error: { code: 'not_found', message: 'not_found message find' } };
-  return { result: example };
+  const resource = await General.findById(COLLECTION_NAME, id);
+  if (!resource) return { error: {
+    code: 'not_found', message: \`\${NAME_SINGULAR} not found\` } };
+  return { result: resource };
 };
 
 const insertOne = async (obj) => {
   const insertedId = await General.insertOne(COLLECTION_NAME, obj);
-  if (!insertedId) return { error: { code: 'already_exists', message: 'already_exists message insert' } };
+  if (!insertedId) return { error: {
+    code: 'already_exists', message: \`\${NAME_SINGULAR} already exists\` } };
   return { result: { _id: insertedId, ...obj } };
 };
 
 const deleteById = async (id) => {
   const resp = await General.deleteById(COLLECTION_NAME, id);
-  if (!resp) return { error: { code: 'not_found', message: 'not_found message delete' } };
-  return { result: { message: \`The \${RESOURCE_NAME_SINGULAR} with id = \${id} was deleted successfully\` } };
+  if (!resp) return { error: {
+    code: 'not_found', message: 'not_found message delete' } };
+  return { result: {
+    message: \`The \${NAME_SINGULAR} with id = \${id} was deleted successfully\` } };
 };
 
 const updateById = async (id, obj) => {
   const resp = await General.updateById(COLLECTION_NAME, id, obj);
-  if (!resp) return { error: { code: 'not_found', message: 'not_found message update' } };
+  if (!resp) return { error: {
+    code: 'not_found', message: \`\${NAME_SINGULAR} not found\` } };
   return await findById(id);
 };
 
@@ -331,19 +340,22 @@ do
 const Joi = require('joi');
 
 const insert = Joi.object({
-  label1: Joi.string().required(),
-  label4: Joi.array().items(Joi.number()).required(),
+  fill_it_up: Joi.string().required(),
   label2: Joi.string().isoDate().message('Date needs to be on ISODate pattern')
-   .required(),
+    .required(),
   label3: Joi.number().required(),
+  label4: Joi.array().items(Joi.number()).required(),
 })
-.messages({ 'any.required': 'The {#label} field is required.', 'string.type': '{#label} needs to be a string' });
+  .messages({
+    'any.required': 'The {#label} field is required.',
+    'string.type': '{#label} needs to be a string',
+  });
 
 const update = Joi.object({
   label1: Joi.string(),
-  label4: Joi.array().items(Joi.number()),
   label2: Joi.string().isoDate().message('Date needs to be on ISODate pattern'),
   label3: Joi.number(),
+  label4: Joi.array().items(Joi.number()),
 });
 
 module.exports = {
@@ -355,7 +367,8 @@ done
 
 # Create utils files
 cat > ./utils/getURL.js << EOF
-module.exports = ({ protocol, hostname, port, username, password, pathname, search, hash }) => {
+module.exports = ({ protocol, hostname, port, username,
+  password, pathname, search, hash }) => {
   const host = username ? \`@\${hostname}\` : hostname;
   const pwd = password ? \`:\${password}\` : '';
   const portNumber = port ? \`:\${port}\` : '';
