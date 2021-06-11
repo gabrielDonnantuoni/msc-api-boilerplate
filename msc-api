@@ -5,8 +5,8 @@ then
   echo "`basename $0`: usage:
   arg1=[DIR_NAME || here]: Type the DIR_NAME to create new directory where you are or 'here' to create the boilerplate in the same current dir.
   arg2=[y || n]: Type 'y' to init npm and install dependencies or 'n' to skip it.
-  arg3=[REST_RESOURCES]: Set the name of the REST resources and their ref collection/table to start the api.
-  Like 'Users-users Products-products'. Make sure to use quotes when setting more than one resource."
+  arg3=[REST_RESOURCES]: Set the name of the REST resources separated by spaces to start the api.
+  Like 'Users Products'. Make sure to use quotes when setting more than one resource."
   exit 1
 fi
 
@@ -63,7 +63,7 @@ Database not supported. Choose one of [mongodb | mysql]
 
   case "$TEST" in
     "mcs") TESTS_SCRIPTS='"test": "mocha \.\/tests\/\*\*\/\*\$DIR\*\/\*\*\/\*\$NAME\*\.test\.js --exit",\n    "testAll": "mocha \.\/tests --recursive",\n    "coverage": "nyc mocha \.\/tests --recursive",\n    '
-      TESTS_DEP="mocha chai sinon nyc";;
+      TESTS_DEP="mocha chai sinon nyc chai-http";;
     "jest") TESTS_SCRIPTS='"test": "jest --testLocationInResults --verbose",\n    "coverage": "jest --coverage --verbose",\n    '
       TESTS_DEP="jest";;
     *) echo "----------------------------------------------
@@ -105,7 +105,7 @@ then
   sed -i "s+\"test\": .* exit 1\"+$SCRIPTS+1" ./package.json
 fi
 
-DIRS_TO_MK=(controllers models services middlewares routes schemas tests utils tests/units)
+DIRS_TO_MK=(controllers models services middlewares routes schemas tests utils tests/unit tests/integration)
 for DIR in ${DIRS_TO_MK[*]}
 do
   if [ ! -d $DIR ]
@@ -124,3 +124,10 @@ if [ "$USE_ESLINT" = "y" ]
 then
   $SCRIPT_DIR/msc-api-models/js-linter.sh
 fi
+
+echo "Done! \o/
+Now fill '.env.js' with your data and resources informations
+and finally check out the 'schemas' folder to build the correct
+validation objects.
+
+After that you just need to enjoy it."

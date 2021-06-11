@@ -1,30 +1,19 @@
 #!/bin/bash
 
-RESOUR_COLLECS=$*
-
-RESOUR_INDEX=0
-for RC in ${RESOUR_COLLECS[*]}
-do
-  RC_ARR=(${RC//-/ })
-  RESOUR[RESOUR_INDEX]=${RC_ARR[0]}
-  COLLEC[RESOUR_INDEX]=${RC_ARR[1]}
-  RES_LOWER[RESOUR_INDEX]=$(echo "$RESOUR" | sed -e 's/\(.*\)/\L\1/')
-  RESOUR_INDEX=`expr $RESOUR_INDEX + 1`
-done
-RESOUR_INDEX=`expr $RESOUR_INDEX - 1`
+RESOURCES=$*
 
 DIRS_TO_MK=(controllers models services middlewares routes schemas utils)
 for DIR in ${DIRS_TO_MK[*]}
 do
-  if [ ! -d "tests/units/$DIR" ]
+  if [ ! -d "tests/unit/$DIR" ]
   then
-    mkdir tests/units/$DIR
+    mkdir tests/unit/$DIR
   fi
 done
 
-UNIT_TESTS_DIR="./tests/units"
+UNIT_TESTS_DIR="./tests/unit"
 
-for RES in ${RESOUR[*]}
+for RES in ${RESOURCES[*]}
 do
   # Create controllers tests
   CONTROLLER=$UNIT_TESTS_DIR/controllers/$RES

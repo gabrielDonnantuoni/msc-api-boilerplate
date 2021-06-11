@@ -1,33 +1,23 @@
 #!/bin/bash
 
-RESOUR_COLLECS=$*
+RESOURCES=$*
 
-RESOUR_INDEX=0
-for RC in ${RESOUR_COLLECS[*]}
-do
-  RC_ARR=(${RC//-/ })
-  RESOUR[RESOUR_INDEX]=${RC_ARR[0]}
-  COLLEC[RESOUR_INDEX]=${RC_ARR[1]}
-  RES_LOWER[RESOUR_INDEX]=$(echo "$RESOUR" | sed -e 's/\(.*\)/\L\1/')
-  RESOUR_INDEX=`expr $RESOUR_INDEX + 1`
-done
-RESOUR_INDEX=`expr $RESOUR_INDEX - 1`
-
-ALL_RES=${RESOUR[0]}
-if [ $RESOUR_INDEX -ge 1 ]
+ALL_RES=${RESOURCES[0]}
+if [ ${#RESOURCES[*]} -ge 2 ]
 then
-  for idx in $(seq 1 $RESOUR_INDEX)
+  MAX_IDX=`expr ${#RESOURCES[*]} - 1`
+  for idx in $(seq 1 $MAX_IDX)
   do
-    ALL_RES="$ALL_RES, ${RESOUR[idx]}"
+    ALL_RES="$ALL_RES, ${RESOURCES[idx]}"
   done
 fi
 
-# Create index.js
-cat > index.js << EOF
+# Create app.js
+cat > app.js << EOF
 const express = require('express');
-const { port } = require('./.env').api;
 const { errorHandler, notFoundHandler } = require('./middlewares');
 const { $ALL_RES } = require('./routes');
+const { resources } = require('./.env');
 
 const app = express();
 
@@ -35,17 +25,25 @@ app.use(express.json());
 
 EOF
 
-for idx in $(seq 0 $RESOUR_INDEX)
+for RES in ${RESOURCES[*]}
 do
-  cat >> index.js << EOF
-app.use('/${COLLEC[idx]}', ${RESOUR[idx]});
+  cat >> app.js << EOF
+app.use(\`/\${resources.${RES}.basePath}\`, ${RES});
 EOF
 done
 
-cat >> index.js << EOF
+cat >> app.js << EOF
 
 app.use('/:notFound', notFoundHandler);
 app.use(errorHandler);
+
+module.exports = app;
+EOF
+
+# Create index.js
+cat > index.js << EOF
+const app = require('./app');
+const { port } = require('./.env').api;
 
 app.listen(port, () => console.log(\`App running on PORT: \${port}\`));
 EOF
@@ -73,8 +71,38 @@ module.exports = {
     port: '27017',
     username: '',
     password: '',
-    database: 'fill_it_up',
+    database: 'fill_it_up', // fill it!
     search: 'retryWrites=true&w=majority',
+  },
+  resources: {
+EOF
+
+for RES in ${RESOURCES[*]}
+do
+  cat >> .env.js << EOF
+    ${RES}: {
+      singular: 'res_name_on_singular',
+      basePath: 'path',
+      tableOrCollec: 'table_or_collection_name',
+      insertMocks: [ //insert at least two examples
+        {
+          key1: 'value1',
+          key2: 'value2',
+          key3: 'value3',
+          key4: 'value4',
+        },
+        {
+          key1: 'value1',
+          key2: 'value2',
+          key3: 'value3',
+          key4: 'value4',
+        },
+      ],
+    },
+EOF
+done
+
+cat >> .env.js << EOF
   },
 };
 EOF
@@ -91,7 +119,7 @@ EOF
 fi
 
 # Create resource index for controllers
-for RES in ${RESOUR[*]}
+for RES in ${RESOURCES[*]}
 do
   cat >> ./controllers/index.js << EOF
 const ${RES} = require('./${RES}');
@@ -103,7 +131,7 @@ cat >> ./controllers/index.js << EOF
 module.exports = {
 EOF
 
-for RES in ${RESOUR[*]}
+for RES in ${RESOURCES[*]}
 do
   cat >> ./controllers/index.js << EOF
   ${RES},
@@ -122,7 +150,7 @@ do
 done
 
 # Create resources controllers
-for RES in ${RESOUR[*]}
+for RES in ${RESOURCES[*]}
 do
   cat > ./controllers/$RES.js << EOF
 const Service = require('../services').$RES;
@@ -190,7 +218,7 @@ const validate = (resource) => (type) => tcw(async (req, _res, next) => {
 module.exports = {
 EOF
 
-for RES in ${RESOUR[*]}
+for RES in ${RESOURCES[*]}
 do
   cat >> ./middlewares/validations.js << EOF
   $RES: validate('$RES'),
@@ -218,12 +246,10 @@ module.exports = (err, _req, res, _next) => {
 
   const resJson = () => {
     switch (code) {
-    case 'not_found':
-      return { message };
     case 'bad_request':
-      return { err: { code, message: 'invalid_data', data: message } };
+      return { error: { code, message: 'invalid_data', data: message } };
     default:
-      return { err: { code, message } };
+      return { error: { code, message } };
     }
   };
 
@@ -254,45 +280,43 @@ module.exports = {
 EOF
 
 # Create resources services
-for idx in $(seq 0 $RESOUR_INDEX)
+for RES in ${RESOURCES[*]}
 do
-  cat > ./services/${RESOUR[idx]}.js << EOF
+  cat > ./services/${RES}.js << EOF
 const { General } = require('../models');
-
-const COLLECTION_NAME = '${COLLEC[idx]}';
-const NAME_SINGULAR = 'fill_it_up';
+const { resources: { ${RES} } } = require('../.env');
 
 const getAll = async () => {
-  const resources = await General.getAll(COLLECTION_NAME);
+  const resources = await General.getAll(${RES}.tableOrCollec);
   return { result: resources };
 };
 
 const findById = async (id) => {
-  const resource = await General.findById(COLLECTION_NAME, id);
+  const resource = await General.findById(${RES}.tableOrCollec, id);
   if (!resource) return { error: {
-    code: 'not_found', message: \`\${NAME_SINGULAR} not found\` } };
+    code: 'not_found', message: \`\${${RES}.singular} not found\` } };
   return { result: resource };
 };
 
 const insertOne = async (obj) => {
-  const insertedId = await General.insertOne(COLLECTION_NAME, obj);
+  const insertedId = await General.insertOne(${RES}.tableOrCollec, obj);
   if (!insertedId) return { error: {
-    code: 'already_exists', message: \`\${NAME_SINGULAR} already exists\` } };
+    code: 'already_exists', message: \`\${${RES}.singular} already exists\` } };
   return { result: { _id: insertedId, ...obj } };
 };
 
 const deleteById = async (id) => {
-  const resp = await General.deleteById(COLLECTION_NAME, id);
+  const resp = await General.deleteById(${RES}.tableOrCollec, id);
   if (!resp) return { error: {
     code: 'not_found', message: 'not_found message delete' } };
   return { result: {
-    message: \`The \${NAME_SINGULAR} with id = \${id} was deleted successfully\` } };
+    message: \`The \${${RES}.singular} with id = \${id} was deleted successfully\` } };
 };
 
 const updateById = async (id, obj) => {
-  const resp = await General.updateById(COLLECTION_NAME, id, obj);
+  const resp = await General.updateById(${RES}.tableOrCollec, id, obj);
   if (!resp) return { error: {
-    code: 'not_found', message: \`\${NAME_SINGULAR} not found\` } };
+    code: 'not_found', message: \`\${${RES}.singular} not found\` } };
   return await findById(id);
 };
 
@@ -307,7 +331,7 @@ EOF
 done
 
 # Create resources routes
-for RES in ${RESOUR[*]}
+for RES in ${RESOURCES[*]}
 do
   cat > ./routes/$RES.js << EOF
 const express = require('express');
@@ -334,7 +358,7 @@ EOF
 done
 
 # Create resources schemas
-for RES in ${RESOUR[*]}
+for RES in ${RESOURCES[*]}
 do
   cat > ./schemas/$RES.js << EOF
 const Joi = require('joi');

@@ -1,56 +1,67 @@
 #!/bin/bash
 
-UNIT_TESTS_DIR="./tests/units"
+UNIT_TESTS_DIR="./tests/unit"
 
 # Create models tests
 MODEL=$UNIT_TESTS_DIR/models/General
 mkdir $MODEL
+
+## Create models connectionMock file
+cat > ./tests/connectionMock.js << EOF
+const { MongoClient } = require('mongodb');
+const { MongoMemoryServer } = require('mongodb-memory-server');
+
+let connectionMock;
+
+const DBServer = new MongoMemoryServer();
+
+const getConnectionMock = async () => {
+  const URLMock = await DBServer.getUri();
+  if (!connectionMock) {
+    connectionMock = await MongoClient.connect(URLMock, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true
+    });
+  }
+  return connectionMock;
+};
+
+module.exports = { getConnectionMock };
+EOF
 
 ## Create models DeleteById test
 cat > $MODEL/GeneralDeleteById.test.js << EOF
 const sinon = require('sinon');
 const { expect } = require('chai');
 const { MongoClient, ObjectId } = require('mongodb');
-const { MongoMemoryServer } = require('mongodb-memory-server');
 
 const Model = require('../../../../models').General;
 const { database } = require('../../../../.env').mongodbConnection;
+const { getConnectionMock } = require('../../../connectionMock');
 
-let DBServer;
 let connectionMock;
 let db;
 let _id;
 
 describe('Generals Model: deleteById()', () => {
   before(async () => {
-    DBServer = new MongoMemoryServer();
-    const URLMock = await DBServer.getUri();
-
-    connectionMock = await MongoClient
-      .connect(URLMock, {
-        useNewUrlParser: true,
-        useUnifiedTopology: true
-    });
-
-    db = connectionMock.db(database);
-    
+    connectionMock = await getConnectionMock();
     sinon.stub(MongoClient, 'connect').resolves(connectionMock);
+    db = connectionMock.db(database);
   });
 
   after(async () => {
     MongoClient.connect.restore();
-    if (connectionMock) connectionMock.close();
-    if (DBServer) await DBServer.stop()
   });
 
-  describe('when the resource\`s _id does not exist', () => {
+  describe('when the resources _id does not exist', () => {
     it('should return false', async () => {
       const resp = await Model.deleteById('collection', new ObjectId());
       expect(resp).to.be.false;
     });
   });
 
-  describe('when the resource\`s _id exists', () => {
+  describe('when the resources _id exists', () => {
     beforeEach(async () => {
       const { insertedId } = await db.collection('collection').insertOne({ id: 1 });
       _id = insertedId;
@@ -74,36 +85,24 @@ cat > $MODEL/GeneralFindById.test.js << EOF
 const sinon = require('sinon');
 const { expect } = require('chai');
 const { MongoClient, ObjectId } = require('mongodb');
-const { MongoMemoryServer } = require('mongodb-memory-server');
 
 const Model = require('../../../../models').General;
 const { database } = require('../../../../.env').mongodbConnection;
+const { getConnectionMock } = require('../../../connectionMock');
 
-let DBServer;
 let connectionMock;
 let db;
 let _id;
 
 describe('Generals Model: findById()', () => {
   before(async () => {
-    DBServer = new MongoMemoryServer();
-    const URLMock = await DBServer.getUri();
-
-    connectionMock = await MongoClient
-      .connect(URLMock, {
-        useNewUrlParser: true,
-        useUnifiedTopology: true
-    });
-
-    db = connectionMock.db(database);
-    
+    connectionMock = await getConnectionMock();
     sinon.stub(MongoClient, 'connect').resolves(connectionMock);
+    db = connectionMock.db(database);
   });
 
   after(async () => {
     MongoClient.connect.restore();
-    if (connectionMock) connectionMock.close();
-    if (DBServer) await DBServer.stop()
   });
 
   describe('when the resource looked up does not exist', () => {
@@ -137,35 +136,23 @@ cat > $MODEL/GeneralGetAll.test.js << EOF
 const sinon = require('sinon');
 const { expect } = require('chai');
 const { MongoClient } = require('mongodb');
-const { MongoMemoryServer } = require('mongodb-memory-server');
 
 const Model = require('../../../../models').General;
 const { database } = require('../../../../.env').mongodbConnection;
+const { getConnectionMock } = require('../../../connectionMock');
 
-let DBServer;
 let connectionMock;
 let db;
 
 describe('Generals Model: getAll()', () => {
   before(async () => {
-    DBServer = new MongoMemoryServer();
-    const URLMock = await DBServer.getUri();
-
-    connectionMock = await MongoClient
-      .connect(URLMock, {
-        useNewUrlParser: true,
-        useUnifiedTopology: true
-    });
-
-    db = connectionMock.db(database);
-    
+    connectionMock = await getConnectionMock();
     sinon.stub(MongoClient, 'connect').resolves(connectionMock);
+    db = connectionMock.db(database);
   });
 
   after(async () => {
     MongoClient.connect.restore();
-    if (connectionMock) connectionMock.close();
-    if (DBServer) await DBServer.stop()
   });
 
   describe('when the collection has no item', () => {
@@ -200,36 +187,24 @@ cat > $MODEL/GeneralInsertOne.test.js << EOF
 const sinon = require('sinon');
 const { expect } = require('chai');
 const { MongoClient, ObjectId } = require('mongodb');
-const { MongoMemoryServer } = require('mongodb-memory-server');
 
 const Model = require('../../../../models').General;
 const { database } = require('../../../../.env').mongodbConnection;
+const { getConnectionMock } = require('../../../connectionMock');
 
-let DBServer;
 let connectionMock;
 let db;
 let id;
 
 describe('Generals Model: insertOne()', () => {
   before(async () => {
-    DBServer = new MongoMemoryServer();
-    const URLMock = await DBServer.getUri();
-
-    connectionMock = await MongoClient
-      .connect(URLMock, {
-        useNewUrlParser: true,
-        useUnifiedTopology: true
-    });
-
-    db = connectionMock.db(database);
-    
+    connectionMock = await getConnectionMock();
     sinon.stub(MongoClient, 'connect').resolves(connectionMock);
+    db = connectionMock.db(database);
   });
 
   after(async () => {
     MongoClient.connect.restore();
-    if (connectionMock) connectionMock.close();
-    if (DBServer) await DBServer.stop()
   });
 
   describe('when is passed a "resource" WITH an existing id', () => {
@@ -258,46 +233,34 @@ cat > $MODEL/GeneralUpdateById.test.js << EOF
 const sinon = require('sinon');
 const { expect } = require('chai');
 const { MongoClient, ObjectId } = require('mongodb');
-const { MongoMemoryServer } = require('mongodb-memory-server');
 
 const Model = require('../../../../models').General;
 const { database } = require('../../../../.env').mongodbConnection;
+const { getConnectionMock } = require('../../../connectionMock');
 
-let DBServer;
 let connectionMock;
 let db;
 let _id;
 
 describe('Generals Model: updateById()', () => {
   before(async () => {
-    DBServer = new MongoMemoryServer();
-    const URLMock = await DBServer.getUri();
-
-    connectionMock = await MongoClient
-      .connect(URLMock, {
-        useNewUrlParser: true,
-        useUnifiedTopology: true
-    });
-
-    db = connectionMock.db(database);
-    
+    connectionMock = await getConnectionMock();
     sinon.stub(MongoClient, 'connect').resolves(connectionMock);
+    db = connectionMock.db(database);
   });
 
   after(async () => {
     MongoClient.connect.restore();
-    if (connectionMock) connectionMock.close();
-    if (DBServer) await DBServer.stop()
   });
 
-  describe('when the resource\`s _id does not exist', () => {
+  describe('when the resources _id does not exist', () => {
     it('should return false', async () => {
       const resp = await Model.updateById('collection', new ObjectId(), { id: 1 });
       expect(resp).to.be.false;
     });
   });
 
-  describe('when the resource\`s _id exists', () => {
+  describe('when the resources _id exists', () => {
     beforeEach(async () => {
       const { insertedId } = await db.collection('collection').insertOne({ id: 1 });
       _id = insertedId;
