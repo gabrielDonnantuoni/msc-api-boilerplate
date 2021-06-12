@@ -1,8 +1,10 @@
 #!/bin/bash
 
+ROOT_DIR=$1
+
 if [ ! -f ".eslintignore" ]
 then
-  cat > .eslintignore << EOF
+  cat > $ROOT_DIR/.eslintignore << EOF
 node_modules
 test
 tests
@@ -11,7 +13,7 @@ fi
 
 if [ ! -f ".eslintrc.json" ]
 then
-  cat > .eslintrc.json << EOF
+  cat > $ROOT_DIR/.eslintrc.json << EOF
 {
   "env": {
     "es2020": true

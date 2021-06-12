@@ -1,6 +1,16 @@
 #!/bin/bash
 
-RESOURCES=$*
+ROOT_DIR_AND_RESOURCES=($*)
+
+RDR_LENGTH=${#ROOT_DIR_AND_RESOURCES[*]}
+ROOT_DIR=${ROOT_DIR_AND_RESOURCES[0]}
+
+MAX_IDX=`expr ${RDR_LENGTH} - 1`
+for idx in $(seq 1 $MAX_IDX)
+do
+  RES_IDX=`expr $idx - 1`
+  RESOURCES[$RES_IDX]=${ROOT_DIR_AND_RESOURCES[idx]}
+done
 
 ALL_RES=${RESOURCES[0]}
 if [ ${#RESOURCES[*]} -ge 2 ]
@@ -40,8 +50,8 @@ app.use(errorHandler);
 module.exports = app;
 EOF
 
-# Create index.js
-cat > index.js << EOF
+# Create server.js
+cat > server.js << EOF
 const app = require('./app');
 const { port } = require('./.env').api;
 
@@ -106,17 +116,6 @@ cat >> .env.js << EOF
   },
 };
 EOF
-
-# Add .env.js to gitignore if it exists
-if [ -f ".gitignore" ]
-then
-  cat >> ./.gitignore << EOF
-
-
-# Private enviroment
-.env.js
-EOF
-fi
 
 # Create resource index for controllers
 for RES in ${RESOURCES[*]}

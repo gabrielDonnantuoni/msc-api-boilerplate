@@ -3,10 +3,14 @@
 if [ -z "$1" ]
 then
   echo "`basename $0`: usage:
-  arg1=[DIR_NAME || here]: Type the DIR_NAME to create new directory where you are or 'here' to create the boilerplate in the same current dir.
+  arg1=[DIR_NAME || here]: Type the DIR_NAME to create new directory where you are or 'here' to create the boilerplate in the current dir.
+OPTIONAL: add '-' after the DIR_NAME to add the path to the api. Like 'here-src/api'. Otherwise the api files will be writen on the DIR_NAME folder.
+
   arg2=[y || n]: Type 'y' to init npm and install dependencies or 'n' to skip it.
+
   arg3=[REST_RESOURCES]: Set the name of the REST resources separated by spaces to start the api.
-  Like 'Users Products'. Make sure to use quotes when setting more than one resource."
+  Like 'Users Products'. Make sure to use quotes when setting more than one resource.
+"
   exit 1
 fi
 
@@ -24,7 +28,7 @@ fi
 
 if [ -z "$3" ]
 then
-  RESOR_COLLECS="Examples-examples"
+  RESOR_COLLECS="Examples"
 else
   RESOR_COLLECS=(${3})
 fi
@@ -62,7 +66,7 @@ Database not supported. Choose one of [mongodb | mysql]
   esac
 
   case "$TEST" in
-    "mcs") TESTS_SCRIPTS='"test": "mocha \.\/tests\/\*\*\/\*\$DIR\*\/\*\*\/\*\$NAME\*\.test\.js --exit",\n    "testAll": "mocha \.\/tests --recursive",\n    "coverage": "nyc mocha \.\/tests --recursive",\n    '
+    "mcs") TESTS_SCRIPTS='"test": "mocha \.\/\*\*\/tests\/\*\*\/\*\$DIR\*\/\*\*\/\*\$NAME\*\.test\.js --exit",\n    "testAll": "mocha \.\/\*\*\/tests --recursive",\n    "coverage": "nyc mocha \.\/\*\*\/tests --recursive",\n    '
       TESTS_DEP="mocha chai sinon nyc chai-http";;
     "jest") TESTS_SCRIPTS='"test": "jest --testLocationInResults --verbose",\n    "coverage": "jest --coverage --verbose",\n    '
       TESTS_DEP="jest";;
@@ -89,10 +93,23 @@ then
   ESLINT_AND_PLUGINS="eslint eslint-config-airbnb eslint-plugin-import eslint-plugin-sonarjs"
 fi
 
-if [ "$1" != "here" ]
+MAIN_DIR_AND_API_PATH=(${1//-/ })
+MAIN_DIR=${MAIN_DIR_AND_API_PATH[0]}
+API_PATH=${MAIN_DIR_AND_API_PATH[1]}
+
+if [ "$MAIN_DIR" != "here" ]
 then
   mkdir "$1"
   cd "./$1"
+fi
+
+ROOT_DIR=$PWD
+
+if [ -z $API_PATH ]
+then
+  API_SCRIPT_PATH='./'
+else
+  API_SCRIPT_PATH="$API_PATH/"
 fi
 
 if [ "$2" = "y" ]
@@ -100,9 +117,18 @@ then
   npm init -y
   npm i express joi $DB_DEP
   npm i -D nodemon $TESTS_DEP $ESLINT_AND_PLUGINS
-  SCRIPTS='"start": "node index.js",\n    "dev": "nodemon index.js",\n    "lint": "eslint --no-inline-config --no-error-on-unmatched-pattern -c .eslintrc.json . --ext .js, .jsx"'
+  SCRIPTS=$(echo '"start-api": "node APIserver.js",\n    "dev-api": "nodemon APIserver.js",\n    "lint": "eslint --no-inline-config --no-error-on-unmatched-pattern -c .eslintrc.json . --ext .js, .jsx"' | sed -r "s+API+$API_SCRIPT_PATH+g")
   SCRIPTS="${TESTS_SCRIPTS}${SCRIPTS}"
   sed -i "s+\"test\": .* exit 1\"+$SCRIPTS+1" ./package.json
+fi
+
+if [ -n "$API_PATH" ]
+then
+  if [ ! -d "$API_PATH" ]
+  then
+    mkdir -p $API_PATH
+  fi
+  cd $API_PATH
 fi
 
 DIRS_TO_MK=(controllers models services middlewares routes schemas tests utils tests/unit tests/integration)
@@ -116,17 +142,31 @@ done
 
 SCRIPT_DIR="$HOME/.local/bin"
 
-$SCRIPT_DIR/msc-api-models/js-default.sh ${RESOR_COLLECS[*]}
+# Add .env.js to gitignore if it exists
+# or add a gitignore template
+if [ -f "$ROOT_DIR/.gitignore" ]
+then
+  cat >> $ROOT_DIR/.gitignore << EOF
+
+
+# Private enviroment
+.env.js
+EOF
+else
+  cp $SCRIPT_DIR/msc-api-models/.gitignore $ROOT_DIR/.gitignore
+fi
+
+$SCRIPT_DIR/msc-api-models/js-default.sh $ROOT_DIR ${RESOR_COLLECS[*]}
 $SCRIPT_DIR/msc-api-models/js-mongodb.sh
 $SCRIPT_DIR/msc-api-models/js-mcs.sh ${RESOR_COLLECS[*]}
 $SCRIPT_DIR/msc-api-models/js-mcs-mongodb.sh
 if [ "$USE_ESLINT" = "y" ]
 then
-  $SCRIPT_DIR/msc-api-models/js-linter.sh
+  $SCRIPT_DIR/msc-api-models/js-linter.sh $ROOT_DIR
 fi
 
 echo "Done! \o/
-Now fill '.env.js' with your data and resources informations
+Now fill '.env.js' with your data and resources information
 and finally check out the 'schemas' folder to build the correct
 validation objects.
 

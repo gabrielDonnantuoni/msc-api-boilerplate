@@ -1,6 +1,6 @@
 #!/bin/bash
 
-RESOURCES=$*
+RESOURCES=($*)
 
 DIRS_TO_MK=(controllers models services middlewares routes schemas utils)
 for DIR in ${DIRS_TO_MK[*]}

@@ -76,6 +76,13 @@ const findWith = async (collecName, obj) => (
     .then((coll) => coll.find({ ...obj }).toArray())
 );
 
+const deleteWith = async (collecName, obj) => {
+  const { deletedCount } = await withCollection(collecName)
+    .then((coll) => coll.deleteMany({ ...obj }));
+  if (!deletedCount) return false;
+  return true;
+};
+
 module.exports = {
   getAll,
   findById,
@@ -83,5 +90,6 @@ module.exports = {
   deleteById,
   updateById,
   findWith,
+  deleteWith,
 };
 EOF
